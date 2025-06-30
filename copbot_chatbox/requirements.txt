@@ -1,0 +1,15 @@
+streamlit
+langchain
+langchain-groq
+langchain_community
+langchain-text-splitters
+langchain-cohere  # Dependency for Tavily search results
+langchain_experimental
+langchainhub
+faiss-cpu
+pypdf
+python-dotenv
+sentence-transformers
+tavily-python
+deep-translator==1.11.4
+httpcore-1.0.9
