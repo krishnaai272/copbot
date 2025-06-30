@@ -1,50 +1,78 @@
+import os
 import streamlit as st
+import faiss  # <--- FIX 1: IMPORT THE FAISS LIBRARY
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceBgeEmbeddings
+from langchain.docstore.in_memory import InMemoryDocstore
+from langchain.storage import InMemoryStore
+from langchain.retrievers import ParentDocumentRetriever
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_huggingface import HuggingFaceEmbeddings
 
-# Use Streamlit's caching to load the model and process the PDF only once.
 @st.cache_resource
-def get_vector_db_from_pdf(pdf_path):
+def create_knowledge_base_from_pdfs(pdf_filepaths: list[str]):
     """
-    Loads a PDF, chunks it, creates embeddings, and stores it in a FAISS vector database.
-    Returns the vector database object.
+    Loads and processes a list of PDF files, creates a unified vector database
+    using the ParentDocumentRetriever strategy for more accurate context.
     """
+    all_documents = []
+    for filepath in pdf_filepaths:
+        if not os.path.exists(filepath):
+            st.warning(f"File not found: {filepath}. Skipping.")
+            continue
+        try:
+            loader = PyPDFLoader(file_path=filepath)
+            all_documents.extend(loader.load())
+        except Exception as e:
+            st.error(f"Error loading {filepath}: {e}")
+            continue
 
-    pdf_path = "data/Case section Tamilnadu.pdf"
-
-    if not pdf_path:
+    if not all_documents:
+        st.error("No documents were loaded.")
         return None
+
     try:
-        # 1. Load the document
-        loader = PyPDFLoader(file_path=pdf_path)
-        documents = loader.load()
+        parent_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
+        child_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=100)
 
-        # 2. Split the document into chunks
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200
-        )
-        chunked_docs = text_splitter.split_documents(documents)
-
-        # 3. Create embeddings model
-        # Using a powerful open-source model. It runs locally on your CPU.
-        model_name = "BAAI/bge-small-en-v1.5"
-        encode_kwargs = {'normalize_embeddings': True}
-        embeddings = HuggingFaceBgeEmbeddings(
-            model_name=model_name,
+        embeddings_model = HuggingFaceEmbeddings(
+            model_name="BAAI/bge-small-en-v1.5",
             model_kwargs={'device': 'cpu'},
-            encode_kwargs=encode_kwargs
+            encode_kwargs={'normalize_embeddings': True}
+        )
+        
+        # --- START: THIS IS THE FIX ---
+        # 2. Define the embedding dimension and create an empty FAISS index.
+        embedding_dimension = 384  # Dimension for BAAI/bge-small-en-v1.5
+        faiss_index = faiss.IndexFlatL2(embedding_dimension)
+        
+        # 3. Create a compliant document store for FAISS to use.
+        faiss_docstore = InMemoryDocstore({})
+        
+        # 4. Create the vector store, passing it the pre-built empty index.
+        vectorstore = FAISS(
+            embedding_function=embeddings_model,
+            index=faiss_index,          # Pass the created empty index here
+            docstore=faiss_docstore,
+            index_to_docstore_id={}
+        )
+        # --- END: THIS IS THE FIX ---
+
+        # The storage layer for the large parent documents
+        store = InMemoryStore()
+
+        st.write(f"Initializing Parent Document Retriever from {len(all_documents)} pages...")
+        retriever = ParentDocumentRetriever(
+            vectorstore=vectorstore,
+            docstore=store,
+            child_splitter=child_splitter,
+            parent_splitter=parent_splitter,
         )
 
-        # 4. Create FAISS Vector Database
-        # This creates an in-memory vector store.
-        vector_db = FAISS.from_documents(chunked_docs, embeddings)
-
-        print("Vector DB created successfully.")
-        return vector_db
+        retriever.add_documents(all_documents, ids=None)
+        st.success("Knowledge base initialized successfully using Parent Document Retriever!")
+        return retriever
 
     except Exception as e:
-        print(f"Error creating vector DB: {e}")
+        st.error(f"An error occurred while creating the knowledge base: {e}")
         return None
