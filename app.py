@@ -2,13 +2,14 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 
-from src.rag_processor import create_knowledge_base_from_pdfs
-from src.llm_handler import create_rag_chain_from_retriever
+# Import the correct functions for the "fast and effective" architecture
+from src.rag_processor import create_vector_db_from_pdfs
+from src.llm_handler import create_effective_rag_chain
 from src.utils import translate_text
 
 load_dotenv()
 
-# --- UI Configuration (remains unchanged) ---
+# --- UI Configuration (remains the same) ---
 UI_TEXT = {
     "en": {
         "title": "Police Assistance Cell",
@@ -25,57 +26,67 @@ UI_TEXT = {
         "disclaimer": "இந்தத் தகவல்கள் பொதுவான வழிகாட்டுதலுக்காக மட்டுமே. இது சட்ட ஆலோசனைக்கு மாற்றாகாது. குறிப்பிட்ட வழக்குகளுக்கு சட்ட ஆலோசகரை அணுகவும். இது தூத்துக்குடி மாவட்ட காவல்துறையின் ஒரு முன்னோட்டச் செயலி."
     }
 }
+
 # --- Main App Logic ---
 
 def main():
     st.set_page_config(page_title="CopBotChatbox", page_icon="🚨")
 
     st.sidebar.title("Language / மொழி")
+    # --- SYNTAX FIX: Removed the period after 'English' ---
     language = st.sidebar.radio("Choose Language", ('English', 'Tamil'), label_visibility="collapsed")
     lang_code = "ta" if language == "Tamil" else "en"
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
+    # --- INITIALIZATION LOGIC FOR THE "SWEET SPOT" ARCHITECTURE ---
     if "rag_chain" not in st.session_state:
-        with st.spinner("Bot is warming up... This may take a moment."):
+        with st.spinner("Bot is warming up..."):
             pdf_files = [
                 os.path.join("data", "Case section Tamilnadu.pdf"),
                 os.path.join("data", "lawrules.pdf"),
                 os.path.join("data", "lawruleone.pdf"),
+                os.path.join("data", "General Police Procedure.pdf"),
                 os.path.join("data", "lawrulestwo.pdf")
             ]
             
-            # This function now returns a fully configured retriever
-            retriever = create_knowledge_base_from_pdfs(pdf_files)
+            # 1. Create the vector database (this is now much faster)
+            vector_db = create_vector_db_from_pdfs(pdf_files)
             
-            if retriever:
-                # We pass the retriever directly to the chain creation function
-                st.session_state.rag_chain = create_rag_chain_from_retriever(retriever)
+            if vector_db:
+                # 2. Create the effective RAG chain using the vector database
+                st.session_state.rag_chain = create_effective_rag_chain(vector_db)
             else:
+                st.error("Failed to initialize the document knowledge base. Please check PDF files and logs.")
                 st.stop()
 
-    # --- The rest of the app logic remains the same ---
+    # --- Main Chat Interface ---
     st.markdown(f"<h3 style='text-align: center;'>{UI_TEXT[lang_code]['title']}</h3>", unsafe_allow_html=True)
 
+    # Display initial welcome message if chat is empty
     if not st.session_state.messages:
          st.session_state.messages.append({"role": "assistant", "content": UI_TEXT[lang_code]['welcome']})
 
+    # Display chat history
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
+    # Display quick action buttons
     cols = st.columns(len(UI_TEXT[lang_code]['buttons']))
     for i, button_text in enumerate(UI_TEXT[lang_code]['buttons']):
         if cols[i].button(button_text):
             st.session_state.user_input_from_button = button_text
     
+    # Handle user input (from chat input or button click)
     prompt = st.chat_input(UI_TEXT[lang_code]['placeholder'])
     if "user_input_from_button" in st.session_state and st.session_state.user_input_from_button:
         prompt = st.session_state.user_input_from_button
-        st.session_state.user_input_from_button = None
+        st.session_state.user_input_from_button = None # Reset after use
 
     if prompt:
+        # Add user message to chat history and display it
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
@@ -88,10 +99,13 @@ def main():
             
             final_response = translate_text(response_text, lang_code) if lang_code == 'ta' else response_text
         
+        # Add assistant response to chat history and display it
         st.session_state.messages.append({"role": "assistant", "content": final_response})
         st.rerun()
 
+    # Display disclaimer
     st.markdown(f"<p style='font-size: 0.8em; text-align: center; margin-top: 2em;'>{UI_TEXT[lang_code]['disclaimer']}</p>", unsafe_allow_html=True)
+
 
 if __name__ == "__main__":
     main()
