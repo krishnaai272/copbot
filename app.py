@@ -45,7 +45,6 @@ def main():
         with st.spinner("Bot is warming up..."):
             pdf_files = [
                 os.path.join("data", "lawrules.pdf"),
-                os.path.join("data", "lawruleone.pdf"),
                 os.path.join("data", "General Police Procedure new.pdf"),
                 os.path.join("data", "lawrulestwo.pdf")
             ]
