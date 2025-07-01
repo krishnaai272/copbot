@@ -44,10 +44,9 @@ def main():
     if "rag_chain" not in st.session_state:
         with st.spinner("Bot is warming up..."):
             pdf_files = [
-                os.path.join("data", "Case section Tamilnadu.pdf"),
                 os.path.join("data", "lawrules.pdf"),
                 os.path.join("data", "lawruleone.pdf"),
-                os.path.join("data", "General Police Procedure.pdf"),
+                os.path.join("data", "General Police Procedure new.pdf"),
                 os.path.join("data", "lawrulestwo.pdf")
             ]
             
