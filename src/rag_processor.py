@@ -1,52 +1,38 @@
 import os
 import streamlit as st
-from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import FAISS
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 
-# --- THIS IS THE CORRECT FUNCTION NAME THAT app.py IS LOOKING FOR ---
+# --- Configuration ---
+INDEX_LOAD_PATH = "faiss_index"
+
 @st.cache_resource
-def create_vector_db_from_pdfs(pdf_filepaths: list[str]):
+def load_vector_db():
     """
-    Loads PDFs, chunks them, and creates a FAISS vector store.
-    This is much faster to initialize than the ParentDocumentRetriever.
+    Loads the pre-built FAISS index from disk. This is very fast.
     """
-    all_documents = []
-    for filepath in pdf_filepaths:
-        if not os.path.exists(filepath):
-            st.warning(f"File not found: {filepath}. Skipping.")
-            continue
-        try:
-            loader = PyPDFLoader(file_path=filepath)
-            all_documents.extend(loader.load())
-        except Exception as e:
-            st.error(f"Error loading {filepath}: {e}")
-            continue
-
-    if not all_documents:
-        st.error("No documents were loaded.")
+    if not os.path.exists(INDEX_LOAD_PATH):
+        st.error(f"The FAISS index folder was not found at '{INDEX_LOAD_PATH}'. Please run 'build_index.py' first.")
         return None
-
+    
     try:
-        # Use a single, effective chunking strategy.
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
-        chunked_docs = text_splitter.split_documents(all_documents)
-
+        st.write("Loading pre-built knowledge base...")
         embeddings_model = HuggingFaceEmbeddings(
             model_name="BAAI/bge-small-en-v1.5",
             model_kwargs={'device': 'cpu'},
             encode_kwargs={'normalize_embeddings': True}
         )
-
-        st.write(f"Creating vector database from {len(chunked_docs)} chunks...")
         
-        # Create the FAISS vector store from the chunks.
-        vector_db = FAISS.from_documents(chunked_docs, embeddings_model)
+        # Load the vector store from the local folder
+        vector_db = FAISS.load_local(
+            INDEX_LOAD_PATH, 
+            embeddings_model, 
+            allow_dangerous_deserialization=True # This is needed to load FAISS indexes
+        )
         
-        st.success("Knowledge base initialized successfully!")
+        st.success("Knowledge base loaded successfully!")
         return vector_db
 
     except Exception as e:
-        st.error(f"An error occurred while creating the knowledge base: {e}")
+        st.error(f"An error occurred while loading the knowledge base: {e}")
         return None

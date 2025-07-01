@@ -2,14 +2,16 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 
-# Import the correct functions for the "fast and effective" architecture
-from src.rag_processor import create_vector_db_from_pdfs
+# --- UPDATED IMPORTS ---
+# We now import the function to LOAD the pre-built index, not build it.
+from src.rag_processor import load_vector_db
 from src.llm_handler import create_effective_rag_chain
 from src.utils import translate_text
 
+# Load environment variables from .env file
 load_dotenv()
 
-# --- UI Configuration (remains the same) ---
+# --- UI Configuration (This section remains unchanged) ---
 UI_TEXT = {
     "en": {
         "title": "Police Assistance Cell",
@@ -33,33 +35,28 @@ def main():
     st.set_page_config(page_title="CopBotChatbox", page_icon="🚨")
 
     st.sidebar.title("Language / மொழி")
-    # --- SYNTAX FIX: Removed the period after 'English' ---
     language = st.sidebar.radio("Choose Language", ('English', 'Tamil'), label_visibility="collapsed")
     lang_code = "ta" if language == "Tamil" else "en"
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # --- INITIALIZATION LOGIC FOR THE "SWEET SPOT" ARCHITECTURE ---
+    # --- UPDATED INITIALIZATION LOGIC FOR FAST CLOUD DEPLOYMENT ---
     if "rag_chain" not in st.session_state:
+        # The spinner will now appear for only a few seconds.
         with st.spinner("Bot is warming up..."):
-            pdf_files = [
-                os.path.join("data", "lawrules.pdf"),
-                os.path.join("data", "General Police Procedure new.pdf"),
-                os.path.join("data", "lawrulestwo.pdf")
-            ]
             
-            # 1. Create the vector database (this is now much faster)
-            vector_db = create_vector_db_from_pdfs(pdf_files)
+            # 1. Load the pre-built vector database from disk.
+            vector_db = load_vector_db()
             
             if vector_db:
-                # 2. Create the effective RAG chain using the vector database
+                # 2. Create the effective RAG chain using the loaded vector database.
                 st.session_state.rag_chain = create_effective_rag_chain(vector_db)
             else:
-                st.error("Failed to initialize the document knowledge base. Please check PDF files and logs.")
-                st.stop()
+                st.error("Could not load the knowledge base. The application cannot start.")
+                st.stop() # Stop the app if the knowledge base fails to load.
 
-    # --- Main Chat Interface ---
+    # --- Main Chat Interface (This section remains unchanged) ---
     st.markdown(f"<h3 style='text-align: center;'>{UI_TEXT[lang_code]['title']}</h3>", unsafe_allow_html=True)
 
     # Display initial welcome message if chat is empty
