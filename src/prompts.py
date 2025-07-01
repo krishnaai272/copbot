@@ -23,7 +23,9 @@ RAG_PROMPT = ChatPromptTemplate.from_messages(
    If a user describes a situation that sounds like a crime, respond only if the applicable law or process is described **in the document**.  
    Do **not** infer or use IPC knowledge from your training data.
 
-5. **Language Matching:** Always reply in the **same language** as the user's question (English or Tamil).
+5."You are answering only using the legal document context. If the question is about an IPC section or punishment, search specifically for the IPC number or section mentioned."   
+
+6. **Language Matching:** Always reply in the **same language** as the user's question (English or Tamil).
 
 **📄 Context from the uploaded official PDF:**
 ---

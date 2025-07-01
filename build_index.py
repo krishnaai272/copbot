@@ -1,18 +1,15 @@
 import os
-from langchain_community.document_loaders import PyPDFLoader
+# --- CHANGE: Import the more robust loader ---
+from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 
 # --- Configuration ---
 PDF_FOLDER_PATH = "data"
-INDEX_SAVE_PATH = "faiss_index" # The name of the folder where the index will be saved
+INDEX_SAVE_PATH = "faiss_index"
 
 def build_and_save_index():
-    """
-    Builds the FAISS index from PDFs in the 'data' folder and saves it to disk.
-    You only need to run this script once, or whenever your PDFs change.
-    """
     print("Starting the index building process...")
 
     pdf_files = [os.path.join(PDF_FOLDER_PATH, f) for f in os.listdir(PDF_FOLDER_PATH) if f.endswith(".pdf")]
@@ -25,7 +22,8 @@ def build_and_save_index():
     all_documents = []
     for filepath in pdf_files:
         try:
-            loader = PyPDFLoader(file_path=filepath)
+            # --- CHANGE: Use PyMuPDFLoader instead of PyPDFLoader ---
+            loader = PyMuPDFLoader(file_path=filepath)
             all_documents.extend(loader.load())
         except Exception as e:
             print(f"Error loading {filepath}: {e}")
@@ -57,7 +55,6 @@ def build_and_save_index():
         vector_db.save_local(INDEX_SAVE_PATH)
         
         print("\nSUCCESS! The FAISS index has been built and saved locally.")
-        print(f"You should now add the '{INDEX_SAVE_PATH}' folder to your Git repository.")
 
     except Exception as e:
         print(f"\nAn error occurred during the process: {e}")

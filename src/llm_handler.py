@@ -17,7 +17,7 @@ def create_effective_rag_chain(vector_db):
     # 2. Create the Retriever with Reranking
     
     # 2a. Base Retriever: A simple vector store retriever that fetches many results.
-    base_retriever = vector_db.as_retriever(search_kwargs={"k": 15})
+    base_retriever = vector_db.as_retriever(search_kwargs={"k": 20})
 
     # 2b. Reranker: Initialize the free, local Cross-Encoder model.
     reranker_model = HuggingFaceCrossEncoder(model_name='cross-encoder/ms-marco-MiniLM-L-6-v2')
